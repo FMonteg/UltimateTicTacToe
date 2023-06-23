@@ -39,10 +39,10 @@ class Board(object):
         subgrids = [self.subgrid_status(state, i) for i in range(9)]
         plays = []
         
-        if lock >= 0 and subgrids[lock][0] == 'A':
+        if lock >= 0 and subgrids[lock] == 'AVAILABLE':
             plays = [(lock, slot) for slot in range(9) if grid[lock][slot] == 0]
         else:
-            plays = [(l, slot) for l in range(9) for slot in range(9) if grid[l][slot] == 0 and subgrids[l][0]=='A' ]
+            plays = [(l, slot) for l in range(9) for slot in range(9) if grid[l][slot] == 0 and subgrids[l]=='AVAILABLE' ]
         shuffle(plays)
         return plays
 
@@ -50,26 +50,24 @@ class Board(object):
         subgrid = unflatten(state)[0][index]
         winner = 0
         status = 'FULL'
-        scores = [0,0]
+
+        for i in range(9):
+            if subgrid[i] == 0:
+                status = 'AVAILABLE'
+                break
 
         for line in possible_lines:
             temp = [subgrid[i] for i in line]
-            temp.sort()
             if temp[0] == temp[1] and temp[0] == temp[2] and temp[0] > 0:
                 winner = temp[0]
                 status = 'WON ' + str(winner)
                 break
-            elif temp[1] == temp[2] and temp[1] > 0:
-                scores[temp[1]-1] += 1
-                status = 'AVAILABLE {0} {1}'.format(scores[0], scores[1])
-            elif temp[0] == 0:
-                status = 'AVAILABLE {0} {1}'.format(scores[0], scores[1])
-            
+
         return status
 
-    def winner(self, state_history, A, a):
+    def winner(self, state_history):
         if len(state_history)>1:
-            delta_score = self.score(state_history[-1], A, a)-self.score(state_history[-2], A, a)
+            delta_score = self.score(state_history[-1])-self.score(state_history[-2])
         if delta_score > 0:
             return 1
         elif delta_score < 0:
@@ -83,7 +81,7 @@ class Board(object):
 
         for i in range(9):
             status = self.subgrid_status(state, i)
-            if status[0] == 'A':
+            if status == 'AVAILABLE':
                 return 0
             elif status[0] == 'W':
                 grid[i] = int(status[-1])
@@ -106,18 +104,13 @@ class Board(object):
 
         return winner
     
-    def score(self, state, A, a):
+    def score(self, state):
         scores = [0, 0]
 
         for i in range(9):
             status = self.subgrid_status(state, i)
             if status[0] == 'W':
-                scores[int(status[-1])-1] += A
-            else:
-                temp = [int(status[-3]), int(status[-1])]
-                scores[0] += a*temp[0]
-                scores[1] += a*temp[1]
-                
+                scores[int(status[-1])-1] += 1
 
         return scores[0]-scores[1]
 
@@ -136,8 +129,6 @@ class MonteCarlo(object):
         self.plays = {}
 
         self.C = kwargs.get('C', 1.4)
-        self.A = kwargs.get('A', 10)
-        self.a = kwargs.get('a', 1)
         pass
 
     def set_calculation_time(self, seconds):
@@ -215,7 +206,7 @@ class MonteCarlo(object):
                     self.max_depth = t
             visited_states.add((player, state))
             player = self.board.current_player(state)
-            winner = self.board.winner(states_copy, self.A, self.a)
+            winner = self.board.winner(states_copy)
             if winner:
                 break
 
